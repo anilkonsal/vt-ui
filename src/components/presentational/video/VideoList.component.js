@@ -1,63 +1,81 @@
 import React, { Component } from 'react'
-import { Icon, Segment } from 'semantic-ui-react'
+import { Segment, Modal } from 'semantic-ui-react'
 import axios from 'axios'
 
 export default class VideoList extends Component {
   state = {
-    endpoint: process.env.REACT_APP_API_HOST,
-    videos: []
+    videos: [],
+    open: false
   }
 
-  constructor(props) {
-    super(props)
-    this.fetchVideos.bind(this)
-  }
+  show = (dimmer, videoName) => () => this.setState({ dimmer, videoName, open: true, })
+  close = () => this.setState({ open: false })
 
   componentDidMount(props) {
     this.fetchVideos()
   }
 
-  componentDidUpdate(props) {
+  componentWillReceiveProps(props) {
     if (this.props.shouldFetch) {
       this.fetchVideos()
+      if (this.props.onDone) {
+        this.props.onDone()
+      }
     }
-    this.props.onDone()
   }
 
-
-
   fetchVideos = (userId) => {
-    return axios.get(`http://localhost:3000/v1/videos`).then((res) => {
+    return axios.get(`${process.env.REACT_APP_API_HOST}/v1/videos`).then((res) => {
       this.setState({ videos: res.data })
     }).catch(e => {
       console.error(e)
     })
   }
 
+
   render() {
     const { state } = this
-    const { shouldFetch, onDrop } = this.props
-
-    console.log('shouldFetch: ', shouldFetch)
-
+    const { open, dimmer } = state
     return (
       <div>
         <h2>Videos</h2>
         <Segment placeholder>
           {
-            state.videos.length > 0 && (
-              <div className='ui grid' >
-                {
-                  state.videos.map(video => {
-                    return (
-                      <div className='column'>
-                        <img src={`http://localhost:3000/uploads/${video.name}`} alt={video.name} height='150px' className='ui fluid bordered image' />
-                      </div>
-                    )
-                  })
-                }
-              </div>
-            )
+            state.videos.length > 0 ? (
+              <React.Fragment>
+
+                <Modal dimmer={dimmer} size='small' open={open} onClose={this.close}>
+                  <Modal.Header>Select a Photo</Modal.Header>
+                  <Modal.Content image>
+                    <Modal.Description>
+                      <video width="640" height="480" controls>
+                        <source src={`${process.env.REACT_APP_API_HOST}/uploads/${state.videoName}`} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    </Modal.Description>
+                  </Modal.Content>
+                </Modal>
+                <div className='ui small images' >
+                  {
+                    state.videos.map((video, i) => {
+                      return (
+                        <img src={`${process.env.REACT_APP_API_HOST}/uploads/${video.name}.jpg`}
+                          key={i}
+                          onClick={this.show('inverted', video.name)}
+                          style={{ cursor: 'pointer' }}
+                          alt={video.name}
+                          className='ui image bordered' />
+                      )
+                    })
+                  }
+                </div>
+              </React.Fragment>
+            ) : (
+                <div className='ui bottom attached warning message'>
+                  <i className='icon info'></i>
+                  No videos yet
+                </div>
+              )
           }
         </Segment>
       </div>

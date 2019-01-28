@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
 import { Container } from 'semantic-ui-react'
-import { Button, Header, Icon, Segment, Dimmer, Loader, Image } from 'semantic-ui-react'
+import { Button, Header, Icon, Segment, Dimmer, Loader } from 'semantic-ui-react'
 import Dropzone from 'react-dropzone'
 import axios from 'axios'
 import VideoList from '../presentational/video/VideoList.component'
@@ -8,7 +8,6 @@ import VideoList from '../presentational/video/VideoList.component'
 export default class VideoUpload extends Component {
 
   state = {
-    endpoint: process.env.REACT_APP_API_HOST,
     filesSelected: [],
     files: [],
     isUploading: false,
@@ -16,26 +15,29 @@ export default class VideoUpload extends Component {
     videos: []
   }
 
-  updateShouldFetch() {
-    this.setState({ shouldFetch: false })
+  constructor(props) {
+    super(props);
+    this.updateShouldFetch = this.updateShouldFetch.bind(this)
   }
 
-  uploadFile = (file, name, type) => {
-    this.setState({ isUploading: true })
-    return axios.post('http://localhost:3000/v1/videos', { file, name }).then((res) => {
-      this.setState({ isUploading: false, shouldFetch: true })
+  updateShouldFetch() {
+    if (this.state.shouldFetch) {
+      this.setState({ shouldFetch: false })
+    }
+  }
 
+  uploadFile = (video, thumb, name) => {
+    this.setState({ isUploading: true })
+    return axios.post(`${process.env.REACT_APP_API_HOST}/v1/videos`, { video, thumb, name }).then((res) => {
+      this.setState({ isUploading: false, shouldFetch: true })
     }).catch(e => {
       this.setState({ isUploading: false })
     })
   }
 
   onDrop = (acceptedFiles, rejectedfiles) => {
+    const me = this
     let { filesSelected } = this.state
-
-    console.log('Files Accepted: ', acceptedFiles)
-    console.log('Files Rejeccted: ', rejectedfiles)
-
     let newAcceptedFiles = []
 
     if (filesSelected.length > 0) {
@@ -61,20 +63,63 @@ export default class VideoUpload extends Component {
     newAcceptedFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = () => {
-        this.uploadFile(reader.result, file.name).then(() => {
-          this.setState({ files: [...this.state.files] })
-        })
 
+        const blob = new Blob([reader.result], { type: file.type });
+        const url = URL.createObjectURL(blob);
+        const videoBase64 = 'data:video/mp4;base64,' + btoa(new Uint8Array(reader.result).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+        const video = document.createElement('video');
+        let imageData
+        const timeupdate = function () {
+          if (snapImage()) {
+            video.removeEventListener('timeupdate', timeupdate);
+            video.pause();
+          }
+        };
+        video.addEventListener('loadeddata', function () {
+          if (snapImage()) {
+            me.uploadFile(videoBase64, imageData, file.name).then(() => {
+              me.setState({ files: [...me.state.files] })
+            })
+            video.removeEventListener('timeupdate', timeupdate);
+          }
+        });
+
+
+        const snapImage = function () {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+          const image = canvas.toDataURL();
+          imageData = image;
+
+          const success = image.length > 100000;
+          if (success) {
+            const img = document.createElement('img');
+            img.src = image;
+            img.classList.add('ui')
+            img.classList.add('image')
+            URL.revokeObjectURL(url);
+          }
+          return success;
+        };
+        video.addEventListener('timeupdate', timeupdate);
+        video.preload = 'metadata';
+        video.src = url;
+        video.muted = true;
+        video.playsInline = true;
+        video.play();
       };
+
       reader.onabort = () => console.log('file reading was aborted');
       reader.onerror = () => console.log('file reading has failed');
 
-      reader.readAsDataURL(file);
+      reader.readAsArrayBuffer(file);
     });
   }
 
   render() {
-    const s = this.state;
+    const state = this.state;
 
     return (
       <Container>
@@ -83,30 +128,30 @@ export default class VideoUpload extends Component {
           <div>
             <Segment placeholder style={{ textAlign: 'center' }}>
               {
-                s.isUploading && (
+                state.isUploading && (
                   <Dimmer active inverted>
                     <Loader >Uploading...</Loader>
                   </Dimmer>)
               }
               <Dropzone
-                // accept='video/mpeg, video/mp4, video/x-mpeg, image/jpg, image/png'
+                accept='video/mpeg, video/mp4, video/x-mpeg'
                 onDrop={this.onDrop}
                 className='attachment-dropzone'>
                 <div>
                   <Header icon>
                     <Icon name='video file outline' />
-                    No documents are listed for this customer.
+                    Upload your video by Drag/Drop on this area or clicking the button below.
                 </Header>
-                  <Button primary>Add Document</Button>
+                  <Button primary>Upload Video</Button>
                 </div>
               </Dropzone>
             </Segment>
-            <VideoList shouldFetch onDone={this.updateShouldFetch} />
+            <div className='ui small images'>
+              <div id='vids'></div>
+            </div>
+            <VideoList shouldFetch={state.shouldFetch} onDone={this.updateShouldFetch} />
           </div>
-
         </div>
-
-
       </Container>
     )
   }

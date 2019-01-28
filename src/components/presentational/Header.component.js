@@ -1,14 +1,13 @@
 import React, { Component } from 'react'
 import { Input, Menu, Container } from 'semantic-ui-react'
-import { Router, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { Icon } from 'semantic-ui-react'
 import logo from '../../static/img/viewtube.png'
 
-export default class MenuExampleSecondary extends Component {
+export default class Header extends Component {
   state = { activeItem: 'home' }
 
-
   render() {
-
     return (
       <Container>
         <Menu secondary>
@@ -19,7 +18,9 @@ export default class MenuExampleSecondary extends Component {
             <Input fluid icon='search' placeholder='Search...' size='big' />
           </Menu.Item>
           <Menu.Menu position='right'>
-            <Menu.Item name='Upload' as={Link} to='/upload' />
+            <Menu.Item as={Link} to='/upload' >
+              <Icon name='upload' />
+            </Menu.Item>
           </Menu.Menu>
         </Menu>
       </Container>
